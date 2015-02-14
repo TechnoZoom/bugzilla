@@ -22,6 +22,8 @@ var TUI_COOKIE_NAME  = 'TUI';
 
 var TUI_alternates = new Array();
 
+var json_subcookies = {};
+
 /** 
  * Hides a particular class of elements if they are shown, 
  * or shows them if they are hidden. Then it stores whether that
@@ -30,11 +32,8 @@ var TUI_alternates = new Array();
  * @param className   The name of the CSS class to hide.
  */
 function TUI_toggle_class(className) {
-    var elements = YAHOO.util.Dom.getElementsByClassName(className);
-    for (var i = 0; i < elements.length; i++) {
-        bz_toggleClass(elements[i], TUI_HIDDEN_CLASS);
-    }
-    _TUI_save_class_state(elements, className);
+     $("."+className).each( bz_toggleClass($(this), TUI_HIDDEN_CLASS));
+    _TUI_save_class_state($("."+className+":first"), className);
     _TUI_toggle_control_link(className);
 }
 
@@ -46,25 +45,29 @@ function TUI_toggle_class(className) {
  * @param className   The class to hide by default.
  */
 function TUI_hide_default(className) {
-    YAHOO.util.Event.onDOMReady(function () {
-        if (!YAHOO.util.Cookie.getSub('TUI', className)) {
+    $("document").ready(function () {
+		
+		if(json_subcookies !=null)
+		{
+		if(json_subcookies[className] != 0){
             TUI_toggle_class(className);
-        }
+                              }
+		}
     });
 }
 
 function _TUI_toggle_control_link(className) {
-    var link = document.getElementById(className + "_controller");
+    var link = $("#"+className + "_controller");
     if (!link) return;
     var original_text = link.innerHTML;
     link.innerHTML = TUI_alternates[className];
     TUI_alternates[className] = original_text;
 }
 
-function _TUI_save_class_state(elements, aClass) {
+function _TUI_save_class_state(element, aClass) {
     // We just check the first element to see if it's hidden or not, and
     // consider that all elements are the same.
-    if (YAHOO.util.Dom.hasClass(elements[0], TUI_HIDDEN_CLASS)) {
+    if (element.hasClass(aClass)) {
         _TUI_store(aClass, 0);
     }
     else {
@@ -73,7 +76,9 @@ function _TUI_save_class_state(elements, aClass) {
 }
 
 function _TUI_store(aClass, state) {
-    YAHOO.util.Cookie.setSub(TUI_COOKIE_NAME, aClass, state,
+    
+    json_subcookies[aclass] = state;
+    $.cookie(TUI_COOKIE_NAME, $.param(json_subcookies),
     {
         expires: new Date('January 1, 2038'),
         path: BUGZILLA.param.cookie_path
@@ -81,16 +86,27 @@ function _TUI_store(aClass, state) {
 }
 
 function _TUI_restore() {
-    var yui_classes = YAHOO.util.Cookie.getSubs(TUI_COOKIE_NAME);
-    for (yui_item in yui_classes) {
-        if (yui_classes[yui_item] == 0) {
-            var elements = YAHOO.util.Dom.getElementsByClassName(yui_item);
-            for (var i = 0; i < elements.length; i++) {
-                YAHOO.util.Dom.addClass(elements[i], 'bz_tui_hidden');
-            }
-            _TUI_toggle_control_link(yui_item);
+    var cookie = $.deparam($.cookie(TUI_COOKIE_NAME, { raw: true }));
+    for (cookie_item in cookie) {
+        if (cookie[cookie_item] == 0) {
+            var elements = $("."+cookie_item);
+            elements.each(function{
+                $(this).addClass("bz_tui_hidden");
+            });
+            _TUI_toggle_control_link(cookie_item);
         }
     }
 }
 
-YAHOO.util.Event.onDOMReady(_TUI_restore);
+jQuery.deparam = function (params) {
+        var o = {};
+        if (!params) return o;
+        var a = params.split('&');
+        for (var i = 0; i < a.length; i++) {
+            var pair = a[i].split('=');
+            o[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1]);
+        }
+        return o;
+    }
+
+$("document").ready(_TUI_restore);
